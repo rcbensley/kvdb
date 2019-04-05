@@ -27,7 +27,7 @@ ice_king_stats = {'name': 'Ice King', 'class': 'Wizard', 'iz_cool': True}
 db.set('ice_king', ice_king_stats)
 ```
 
-Wicked. Now let's read if back!
+Wicked. Now let's read it back!
 ```
 print(db.get('ice_king'))
 [{'_key': 'ice_king', '_value': {'name': 'Ice King', 'class': 'Wizard', 'iz_cool': True}}]

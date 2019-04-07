@@ -14,10 +14,8 @@ class db:
                          'read_default_file': '~/.my.cnf',
                          'cursorclass': pymysql.cursors.DictCursor}
 
-    def __repr__(self):
-        return self.get()
-
     def setup(self):
+        """Create the table used by kvdb to store key/values."""
         drop = "DROP TABLE IF EXISTS kvdb"
         create = (
             "CREATE TABLE kvdb ("
@@ -42,6 +40,7 @@ class db:
             self._query(add_history)
 
     def _query(self, sql: str):
+        """Query the database."""
         con = pymysql.connect(**self._db_opts)
         cur = con.cursor()
         cur.execute(sql)
@@ -54,14 +53,18 @@ class db:
             return False
 
     def dict2json(self, v: dict):
+        """Convert a Python dictionary to JSON, used for writing key/values."""
         return(json.dumps(v))
 
     def str2json(self, v: str):
+        """Convert String to JSON, used for reading key/values."""
         f_v = v.replace("'", "\"")
         f_j = json.loads(f_v)
         return f_j
 
     def get(self, k: str = None, when: str = None):
+        """Read a key back from the database.
+        Specify and datetime for when to get an older version of the key."""
         d = {
             'cols': 'k, v',
             'db': self.database,
@@ -120,10 +123,8 @@ class db:
         init()
         return run()
 
-    def key_exists(self, k):
-        return self.get(k=k)
-
     def set(self, k: str, v: dict):
+        """Insert or Update a key and it's values in the database."""
         vs = list()
         for i in v.keys():
             vs.append("'$.{}', '{}'".format(
@@ -142,6 +143,8 @@ class db:
         self._query(sql)
 
     def update(self, k: str, v: dict):
+        """Update a key and it's values in Python, by reading the JSON value
+        back into Python, then writing it back to the database."""
         old_row = self.get(k)
         if old_row:
             value = old_row[0]['v']
@@ -151,18 +154,23 @@ class db:
             return False
 
     def delete(self, k: str):
+        """Delete a key."""
         sql = "DELETE FROM kvdb WHERE k='{}'".format(k)
         self._query(sql)
 
     def get_last(self, k: str = None):
+        """Get the latest version of a key and it's values."""
         return self.get(k=k, when='last')
 
     def get_first(self, k: str = None):
+        """Get the first version of a key and it's values."""
         return self.get(k=k, when='first')
 
     def get_all(self, k: str = None):
+        """Get all versions of all keys or a specified keys."""
         return self.get(k=k, when='all')
 
     def restore(self, k: str):
+        """Restore the last version of a deleted key."""
         last = self.get(k=k, when='last')
         db.set(**last)

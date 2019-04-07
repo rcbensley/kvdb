@@ -20,11 +20,11 @@ db.set('red', {'rgb': [255, 0, 0]})
 print('Updated')
 pp(db.get('red'))
 
-print('All:')
-pp(db.get_versions('red'))
+print('All red:')
+pp(db.get_all('red'))
 
-print('Then:')
-pp(db.get_first_version('red'))
+print('Then red:')
+pp(db.get_first('red'))
 
 print('All things for all keys:')
 pp(db.get(when='all'))

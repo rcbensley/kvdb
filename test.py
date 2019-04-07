@@ -19,6 +19,6 @@ db.set('Blade Runner 2049',
 
 pp(db.get('Blade Runner'))
 
-db.update('Blade Runner', {'Director': 'Ridley Scott'})
+db.set('Blade Runner', {'Director': 'Ridley Scott'})
 
 pp(db.get())

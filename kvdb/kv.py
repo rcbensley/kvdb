@@ -5,11 +5,11 @@ import pymysql
 class db:
     def __init__(self,
                  database='test',
-                 history=False):
+                 history=True):
         self.database = database
         self.history = history
         self._db_opts = {'host': '127.0.0.1',
-                         'database': database,
+                         'database': self.database,
                          'autocommit': True,
                          'read_default_file': '~/.my.cnf',
                          'cursorclass': pymysql.cursors.DictCursor}
@@ -80,7 +80,8 @@ class db:
             d['group_by'] = "GROUP BY {}".format(i)
 
         def sql():
-            s = "SELECT {cols} FROM '{db}'.kvdb {when} {where} {group_by}"
+            s = "SELECT {cols} FROM `{db}`.kvdb {when} {where} {group_by}"
+            print(s.format(**d))
             return s.format(**d)
 
         def run():
@@ -90,10 +91,11 @@ class db:
                     if 'v' in row:
                         row['v'] = self.str2json(row['v'])
 
-            if len(rows) == 1 and type(rows) is list:
-                return rows[0]
-            elif len(rows) > 1:
-                return rows
+            if rows:
+                if len(rows) == 1:
+                    return rows[0]
+                else:
+                    return rows
             else:
                 return False
 
@@ -110,16 +112,14 @@ class db:
                 set_when("FOR SYSTEM_TIME AS OF '{}'".format(when))
 
             if k is not None:
-                d['where'] = "WHERE k='{k}'"
+                d['k'] = k
+                d['where'] = "WHERE k='{k}'".format(**d)
 
             if k is None and when in ('first', 'last'):
                 set_group_by('k')
 
-            if k is not None:
-                d['k'] = k
-
         init()
-        run()
+        return run()
 
     def key_exists(self, k):
         return self.get(k=k)
@@ -127,7 +127,7 @@ class db:
     def set(self, k: str, v: dict):
         vs = list()
         for i in v.keys():
-            vs.append('$.{}, {}'.format(
+            vs.append("'$.{}', '{}'".format(
                 i,
                 json.dumps(v[i]))
             )
@@ -136,10 +136,11 @@ class db:
 
         v = self.dict2json(v)
         sql = ("INSERT INTO kvdb (k, v) VALUES  ('{k}', '{v}') "
-               "ON DUPLICATE KEY UPDATE v=JSON_SET({v}, '{vs_flat}')").format(
+               "ON DUPLICATE KEY UPDATE v=JSON_SET(v, {vs_flat})").format(
             k=k,
             v=v,
             vs_flat=vs_flat)
+        print(sql)
         self._query(sql)
 
     def update(self, k: str, v: dict):

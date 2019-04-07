@@ -125,13 +125,22 @@ class db:
         return self.get(k=k)
 
     def set(self, k: str, v: dict):
-        if self.key_exists(k=k) is not False:
-            v = self.dict2json(v)
-            sql = ("INSERT INTO kvdb (k, v) VALUES  ('{k}', '{v}') "
-                   "ON DUPLICATE KEY UPDATE v='{v}'").format(k=k, v=v)
-            self._query(sql)
-        else:
-            self.update(k=k, v=v)
+        vs = list()
+        for i in v.keys():
+            vs.append('$.{}, {}'.format(
+                i,
+                json.dumps(v[i]))
+            )
+
+        vs_flat = ', '.join(vs)
+
+        v = self.dict2json(v)
+        sql = ("INSERT INTO kvdb (k, v) VALUES  ('{k}', '{v}') "
+               "ON DUPLICATE KEY UPDATE v=JSON_SET({v}, '{vs_flat}')").format(
+            k=k,
+            v=v,
+            vs_flat=vs_flat)
+        self._query(sql)
 
     def update(self, k: str, v: dict):
         old_row = self.get(k)

@@ -81,7 +81,6 @@ class db:
 
         def sql():
             s = "SELECT {cols} FROM `{db}`.kvdb {when} {where} {group_by}"
-            print(s.format(**d))
             return s.format(**d)
 
         def run():
@@ -140,7 +139,6 @@ class db:
             k=k,
             v=v,
             vs_flat=vs_flat)
-        print(sql)
         self._query(sql)
 
     def update(self, k: str, v: dict):

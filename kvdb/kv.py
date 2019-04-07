@@ -6,6 +6,7 @@ class db:
     def __init__(self,
                  database='test',
                  history=False):
+        self.database = database
         self.history = history
         self._db_opts = {'host': '127.0.0.1',
                          'database': database,
@@ -13,20 +14,23 @@ class db:
                          'read_default_file': '~/.my.cnf',
                          'cursorclass': pymysql.cursors.DictCursor}
 
+    def __repr__(self):
+        return self.get()
+
     def setup(self):
         drop = "DROP TABLE IF EXISTS kvdb"
         create = (
             "CREATE TABLE kvdb ("
             "id bigint(20) NOT NULL AUTO_INCREMENT,"
-            "_key varchar(128) NOT NULL,"
-            "_value JSON NOT NULL CHECK (JSON_VALID(_value)),"
+            "k varchar(128) NOT NULL,"
+            "v JSON NOT NULL CHECK (JSON_VALID(v)),"
             "created timestamp(6) NOT NULL "
             "DEFAULT CURRENT_TIMESTAMP() ,"
             "updated timestamp(6) NOT NULL "
             "DEFAULT CURRENT_TIMESTAMP() "
             "ON UPDATE CURRENT_TIMESTAMP(),"
             "PRIMARY KEY (id),"
-            "UNIQUE KEY (_key),"
+            "UNIQUE KEY (k),"
             "INDEX idx_date (created, updated)"
             ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4")
 
@@ -57,57 +61,100 @@ class db:
         f_j = json.loads(f_v)
         return f_j
 
-    def get(self, k: dict = None, when: str = None):
-        if when == 'all':
-            h = "FOR SYSTEM_TIME all"
-        elif when is not None:
-            h = "FOR SYSTEM_TIME AS OF '{}'".format(when)
-        else:
-            h = ""
+    def get(self, k: str = None, when: str = None):
+        d = {
+            'cols': 'k, v',
+            'db': self.database,
+            'when': '',
+            'where': '',
+            'group_by': ''
+        }
 
-        if k is None:
-            sql = "SELECT _key,_value FROM kvdb {h}".format(h=h)
-        else:
-            sql = ("SELECT _key,_value FROM kvdb {h} "
-                   " WHERE _key='{k}'").format(k=k, h=h)
+        def add_cols(i: str):
+            d['cols'] = d['cols'] + i
 
-        rows = self._query(sql)
-        if rows:
-            for row in rows:
-                if '_value' in row:
-                    row['_value'] = self.str2json(row['_value'])
+        def set_when(i: str):
+            d['when'] = i
 
-        return rows
+        def set_group_by(i):
+            d['group_by'] = "GROUP BY {}".format(i)
+
+        def sql():
+            s = "SELECT {cols} FROM '{db}'.kvdb {when} {where} {group_by}"
+            return s.format(**d)
+
+        def run():
+            rows = self._query(sql=sql())
+            if rows:
+                for row in rows:
+                    if 'v' in row:
+                        row['v'] = self.str2json(row['v'])
+
+            if len(rows) == 1 and type(rows) is list:
+                return rows[0]
+            elif len(rows) > 1:
+                return rows
+            else:
+                return False
+
+        def init():
+            if when == 'all':
+                set_when("FOR SYSTEM_TIME all")
+            elif when == 'first':
+                add_cols(", min(created) as created")
+                set_when("FOR SYSTEM_TIME all")
+            elif when == 'last':
+                add_cols(", max(updated) as updated")
+                set_when("FOR SYSTEM_TIME all")
+            elif when is not None:
+                set_when("FOR SYSTEM_TIME AS OF '{}'".format(when))
+
+            if k is not None:
+                d['where'] = "WHERE k='{k}'"
+
+            if k is None and when in ('first', 'last'):
+                set_group_by('k')
+
+            if k is not None:
+                d['k'] = k
+
+        init()
+        run()
+
+    def key_exists(self, k):
+        return self.get(k=k)
 
     def set(self, k: str, v: dict):
-        v = self.dict2json(v)
-        sql = ("INSERT INTO kvdb (_key, _value) VALUES  ('{k}', '{v}') "
-               "ON DUPLICATE KEY UPDATE _value='{v}'").format(k=k, v=v)
-        self._query(sql)
+        if self.key_exists(k=k) is not False:
+            v = self.dict2json(v)
+            sql = ("INSERT INTO kvdb (k, v) VALUES  ('{k}', '{v}') "
+                   "ON DUPLICATE KEY UPDATE v='{v}'").format(k=k, v=v)
+            self._query(sql)
+        else:
+            self.update(k=k, v=v)
 
     def update(self, k: str, v: dict):
         old_row = self.get(k)
         if old_row:
-            value = old_row[0]['_value']
+            value = old_row[0]['v']
             value.update(v)
             self.set(k, value)
         else:
             return False
 
     def delete(self, k: str):
-        sql = "DELETE FROM kvdb WHERE _key='{}'".format(k)
+        sql = "DELETE FROM kvdb WHERE k='{}'".format(k)
         self._query(sql)
 
-    def created_date(self, k: str):
-        s = "select created from kvdb where _key='{}'".format(k)
-        return self._query(s)
+    def get_last(self, k: str = None):
+        return self.get(k=k, when='last')
 
-    def get_first_version(self, k: str):
-        v = self.created_date(k)
-        date = v[0]['created']
-        if v is not False:
-            return(self.get(k=k, when=date))
+    def get_first(self, k: str = None):
+        return self.get(k=k, when='first')
 
-    def get_versions(self, k: str):
+    def get_all(self, k: str = None):
         return self.get(k=k, when='all')
 
+    def restore(self, k: str):
+        last = self.get(k=k, when='last')
+        db.set(**last)

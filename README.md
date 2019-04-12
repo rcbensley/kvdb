@@ -4,11 +4,13 @@ Wanna store those dictionaries?
 
 Check it out, a Key Value Database, or kvdb, in Python.
 
-We can:
-* Store dictionaries.
+With kvdb you can can:
+* Store dictionaries by key.
 * Retrieve dictionaries.
 * Update dictionaries.
-* Delete dictionaries (New for version 2).
+* Delete dictionaries.
+* Retrieve all or one version of a key from it's update history.
+* Restore an old revision.
 
 
 ### Example
@@ -45,33 +47,46 @@ print(db.get('ice_king'))
 Fixed!
 
 What if we don't want to do any of that messy updating? Simon says, Wizards Rule!
+Set does upserts and merges by default!
 
 ```
 cool_stats = {'Wizards': 'Rule'}
 db.set('ice_king', cool_stats)
 print(db.get('ice_king'))
-[{'_key': 'ice_king', '_value': {'Wizards': 'Rule'}}]
+[{'_key': 'ice_king', '_value': {'name': 'Ice King', 'class': 'Wizard', 'iz_cool': False, 'Wizards': 'Rule'}}]
 ```
 
-### NEW In v2!
-
-Let's just forget the whole thing.
-```
-db.delete('ice_king')
-```
-
-### EVEN NEWER in V3!
 Blasts from the past.
 ```
 db.get(k='key_name', when='all')
 ```
 The 'when' parameter takes a datetime value, with microsecond precision.
 
-Don't know what you are looking for? Get all versions or just the first version of a key:
+Don't know what you are looking for? Get all versions of a key, or the first or last.
 ```
-db.get_first_version(k)
-db.get_versoins(k)
+db.get_all(k)
+db.get_first(k)
+db.get_last(k)
 ```
+
+Restore the last version of a deleted key, or restore the first version:
+```
+db.restore(k)
+db.set(**db.get(k=k, when=db.get_first(k)))
+```
+
+Let's just forget the whole thing.
+```
+db.delete('ice_king')
+```
+
+Or not? Restore last version:
+
+```
+db.restore('ice_king')
+```
+
+
 
 
 ## Changelog
@@ -84,3 +99,6 @@ Delete keys! Can you believe it? Removed type checks, added type notation to the
 
 ### v3
 Versions.
+
+### v4
+Restore versions, set now does an update instead of replace. Last update wins.

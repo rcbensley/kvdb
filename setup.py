@@ -5,7 +5,7 @@ from setuptools import setup
 
 setup(
     name='kvdb',
-    version='3.2',
+    version='3.5',
     url='https://github.com/rcbensley/kvdb',
     description=("Key-Value-Database is a toy abstraction layer"
                  " which uses MariaDB 10.3+ to utilise the JSON data type"

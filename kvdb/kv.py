@@ -3,16 +3,16 @@ import pymysql
 
 
 class db:
-    def __init__(self,
-                 database='test',
-                 history=True):
+    def __init__(self, database="test", history=True):
         self.database = database
         self.history = history
-        self._db_opts = {'host': '127.0.0.1',
-                         'database': self.database,
-                         'autocommit': True,
-                         'read_default_file': '~/.my.cnf',
-                         'cursorclass': pymysql.cursors.DictCursor}
+        self._db_opts = {
+            "host": "127.0.0.1",
+            "database": self.database,
+            "autocommit": True,
+            "read_default_file": "~/.my.cnf",
+            "cursorclass": pymysql.cursors.DictCursor,
+        }
 
     def setup(self):
         """Create the table used by kvdb to store key/values."""
@@ -30,7 +30,8 @@ class db:
             "PRIMARY KEY (id),"
             "UNIQUE KEY (k),"
             "INDEX idx_date (created, updated)"
-            ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4")
+            ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+        )
 
         add_history = "ALTER TABLE kvdb ADD SYSTEM VERSIONING;"
 
@@ -54,11 +55,11 @@ class db:
 
     def dict2json(self, v: dict):
         """Convert a Python dictionary to JSON, used for writing key/values."""
-        return(json.dumps(v))
+        return json.dumps(v)
 
     def str2json(self, v: str):
         """Convert String to JSON, used for reading key/values."""
-        f_v = v.replace("'", "\"")
+        f_v = v.replace("'", '"')
         f_j = json.loads(f_v)
         return f_j
 
@@ -66,21 +67,21 @@ class db:
         """Read a key back from the database.
         Specify and datetime for when to get an older version of the key."""
         d = {
-            'cols': 'k, v',
-            'db': self.database,
-            'when': '',
-            'where': '',
-            'group_by': ''
+            "cols": "k, v",
+            "db": self.database,
+            "when": "",
+            "where": "",
+            "group_by": "",
         }
 
         def add_cols(i: str):
-            d['cols'] = d['cols'] + i
+            d["cols"] = d["cols"] + i
 
         def set_when(i: str):
-            d['when'] = i
+            d["when"] = i
 
         def set_group_by(i):
-            d['group_by'] = "GROUP BY {}".format(i)
+            d["group_by"] = "GROUP BY {}".format(i)
 
         def sql():
             s = "SELECT {cols} FROM `{db}`.kvdb {when} {where} {group_by}"
@@ -90,8 +91,8 @@ class db:
             rows = self._query(sql=sql())
             if rows:
                 for row in rows:
-                    if 'v' in row:
-                        row['v'] = self.str2json(row['v'])
+                    if "v" in row:
+                        row["v"] = self.str2json(row["v"])
 
             if rows:
                 if len(rows) == 1:
@@ -102,44 +103,38 @@ class db:
                 return False
 
         def init():
-            if when == 'all':
+            if when == "all":
                 set_when("FOR SYSTEM_TIME all")
-            elif when == 'first':
+            elif when == "first":
                 add_cols(", min(created) as created")
                 set_when("FOR SYSTEM_TIME all")
-            elif when == 'last':
+            elif when == "last":
                 add_cols(", max(updated) as updated")
                 set_when("FOR SYSTEM_TIME all")
             elif when is not None:
                 set_when("FOR SYSTEM_TIME AS OF '{}'".format(when))
 
             if k is not None:
-                d['k'] = k
-                d['where'] = "WHERE k='{k}'".format(**d)
+                d["k"] = k
+                d["where"] = "WHERE k='{k}'".format(**d)
 
-            if k is None and when in ('first', 'last'):
-                set_group_by('k')
+            if k is None and when in ("first", "last"):
+                set_group_by("k")
 
         init()
         return run()
 
     def set(self, k: str, v: dict):
         """Insert or Update a key and it's values in the database."""
-        vs = list()
+        row = {"k": k, "v": self.dict2json(v), "kv": ""}
+        val_paths = list()
         for i in v.keys():
-            vs.append("'$.{}', '{}'".format(
-                i,
-                json.dumps(v[i]))
-            )
+            val_paths.append("'$.{}', '{}'".format(i, json.dumps(v[i])))
 
-        vs_flat = ', '.join(vs)
+        row['kv'] = ", ".join(val_paths)
 
-        v = self.dict2json(v)
         sql = ("INSERT INTO kvdb (k, v) VALUES  ('{k}', '{v}') "
-               "ON DUPLICATE KEY UPDATE v=JSON_SET(v, {vs_flat})").format(
-            k=k,
-            v=v,
-            vs_flat=vs_flat)
+               "ON DUPLICATE KEY UPDATE v=JSON_SET(v, {kv})").format(**row)
         self._query(sql)
 
     def update(self, k: str, v: dict):
@@ -147,9 +142,7 @@ class db:
         back into Python, then writing it back to the database."""
         old_row = self.get(k)
         if old_row:
-            value = old_row[0]['v']
-            value.update(v)
-            self.set(k, value)
+            self.set(k, {**v, **old_row["v"]})
         else:
             return False
 
@@ -160,17 +153,17 @@ class db:
 
     def get_last(self, k: str = None):
         """Get the latest version of a key and it's values."""
-        return self.get(k=k, when='last')
+        return self.get(k=k, when="last")
 
     def get_first(self, k: str = None):
         """Get the first version of a key and it's values."""
-        return self.get(k=k, when='first')
+        return self.get(k=k, when="first")
 
     def get_all(self, k: str = None):
         """Get all versions of all keys or a specified keys."""
-        return self.get(k=k, when='all')
+        return self.get(k=k, when="all")
 
     def restore(self, k: str):
         """Restore the last version of a deleted key."""
-        last = self.get(k=k, when='last')
+        last = self.get(k=k, when="last")
         db.set(**last)

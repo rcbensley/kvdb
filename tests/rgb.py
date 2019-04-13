@@ -15,7 +15,7 @@ sleep(1)
 pp(db.get())
 
 sleep(5)
-#  Opps! Not quite red enough.
+#  Oops! Not quite red enough.
 db.set('red', {'rgb': [255, 0, 0]})
 print('Updated')
 pp(db.get('red'))

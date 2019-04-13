@@ -1,104 +1,47 @@
-Psst, hey, kid, got some dictionaries?
+Key-Value-Database
+-----------------
+kvdb is a toy abstraction layer allowing one to persist Python dictionaries to a real database.
 
-Wanna store those dictionaries?
+kvdb is supposed to be simple, similar to Shelve, PickleDB, etc.
 
-Check it out, a Key Value Database, or kvdb, in Python.
-
-With kvdb you can can:
-* Store dictionaries by key.
-* Retrieve dictionaries.
-* Update dictionaries.
-* Delete dictionaries.
-* Retrieve all or one version of a key from it's update history.
-* Restore an old revision.
-
-
-### Example
-
-Import and setup.
+A new database is setup simply with:
 ```
 import kvdb
-
 db = kvdb.db()
 db.setup()
 ```
 
-Make and store a dictionary.
+Store a dictionary:
 ```
 ice_king_stats = {'name': 'Ice King', 'class': 'Wizard', 'iz_cool': True}
 db.set('ice_king', ice_king_stats)
 ```
 
-Wicked. Now let's read it back!
+Retrieve a dictionary:
 ```
 print(db.get('ice_king'))
 [{'_key': 'ice_king', '_value': {'name': 'Ice King', 'class': 'Wizard', 'iz_cool': True}}]
->>> fixed_stats = {'iz_cool': False}
 ```
 
-Something is not quite right. Let's fix that key with the correct values.
+Update the dictionary:
 ```
 fixed_stats = {'iz_cool': False}
 db.update('ice_king', fixed_stats)
-
 print(db.get('ice_king'))
 [{'_key': 'ice_king', '_value': {'name': 'Ice King', 'class': 'Wizard', 'iz_cool': False}}]
 ```
-Fixed!
 
-What if we don't want to do any of that messy updating? Simon says, Wizards Rule!
-Set does upserts and merges by default!
-
-```
-cool_stats = {'Wizards': 'Rule'}
-db.set('ice_king', cool_stats)
-print(db.get('ice_king'))
-[{'_key': 'ice_king', '_value': {'name': 'Ice King', 'class': 'Wizard', 'iz_cool': False, 'Wizards': 'Rule'}}]
-```
-
-Blasts from the past.
-```
-db.get(k='key_name', when='all')
-```
-The 'when' parameter takes a datetime value, with microsecond precision.
-
-Don't know what you are looking for? Get all versions of a key, or the first or last.
-```
-db.get_all(k)
-db.get_first(k)
-db.get_last(k)
-```
-
-Restore the last version of a deleted key, or restore the first version:
-```
-db.restore(k)
-db.set(**db.get(k=k, when=db.get_first(k)))
-```
-
-Let's just forget the whole thing.
-```
-db.delete('ice_king')
-```
-
-Or not? Restore last version:
+In the background the data is being written to a MariaDB table. The dictionary is converted to JSON and inserted into a JSON data type column.
+By default, system versioniong is enabled, so all key revisions are stored and retrievable down to the millisecond.
 
 ```
-db.restore('ice_king')
+db.get(k='ice_king', when='all')
+[{'k': 'ice_king',
+  'v': {'name': 'Ice King', 'class': 'Wizard', 'iz_cool': True},
+  'created': datetime.datetime(2019, 4, 13, 10, 58, 7, 410291),
+  'updated': datetime.datetime(2019, 4, 13, 10, 58, 7, 410291)},
+ {'k': 'ice_king',
+  'v': {'name': '"Ice King"', 'class': '"Wizard"', 'iz_cool': 'true'},
+  'created': datetime.datetime(2019, 4, 13, 10, 58, 7, 410291),
+  'updated': datetime.datetime(2019, 4, 13, 10, 58, 22, 272612)}]
 ```
-
-
-
-
-## Changelog
-
-### v1
-Set keys. Get keys. Update keys. Key creation and updating is all still handled within the Python process.
-
-### v2
-Delete keys! Can you believe it? Removed type checks, added type notation to the functions parameters.
-
-### v3
-Versions.
-
-### v4
-Restore versions, set now does an update instead of replace. Last update wins.

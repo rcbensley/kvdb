@@ -104,6 +104,7 @@ class db:
 
         def init():
             if when == "all":
+                add_cols(", created, updated")
                 set_when("FOR SYSTEM_TIME all")
             elif when == "first":
                 add_cols(", min(created) as created")

@@ -131,10 +131,12 @@ class db:
         for i in v.keys():
             val_paths.append("'$.{}', '{}'".format(i, json.dumps(v[i])))
 
-        row['kv'] = ", ".join(val_paths)
+        row["kv"] = ", ".join(val_paths)
 
-        sql = ("INSERT INTO kvdb (k, v) VALUES  ('{k}', '{v}') "
-               "ON DUPLICATE KEY UPDATE v=JSON_SET(v, {kv})").format(**row)
+        sql = (
+            "INSERT INTO kvdb (k, v) VALUES  ('{k}', '{v}') "
+            "ON DUPLICATE KEY UPDATE v=JSON_SET(v, {kv})"
+        ).format(**row)
         self._query(sql)
 
     def update(self, k: str, v: dict):

@@ -63,6 +63,9 @@ class db:
         f_j = json.loads(f_v)
         return f_j
 
+    def datetime_to_str(self, dt):
+        return dt.strftime('%Y-%m-%d %H:%M:%S.%f')
+
     def get(self, k: str = None, when: str = None):
         """Read a key back from the database.
         Specify and datetime for when to get an older version of the key."""
@@ -91,8 +94,12 @@ class db:
             rows = self._query(sql=sql())
             if rows:
                 for row in rows:
-                    if "v" in row:
-                        row["v"] = self.str2json(row["v"])
+                    if 'v' in row:
+                        row['v'] = self.str2json(row["v"])
+                    if 'created' in row:
+                        row['created'] = self.datetime_to_str(row['created'])
+                    if 'updated' in row:
+                        row['updated'] = self.datetime_to_str(row['updated'])
 
             if rows:
                 if len(rows) == 1:
@@ -169,4 +176,4 @@ class db:
     def restore(self, k: str):
         """Restore the last version of a deleted key."""
         last = self.get(k=k, when="last")
-        db.set(**last)
+        self.set(k=last['k'], v=last['v'])

@@ -173,7 +173,7 @@ class db:
         """Get all versions of all keys or a specified keys."""
         return self.get(k=k, when="all")
 
-    def restore(self, k: str):
-        """Restore the last version of a deleted key."""
-        last = self.get(k=k, when="last")
+    def restore(self, k: str, when):
+        """Restore a version of a deleted key."""
+        last = self.get(k=k, when=when)
         self.set(k=last['k'], v=last['v'])

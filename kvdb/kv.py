@@ -1,9 +1,10 @@
 import json
 import pymysql
+from warnings import filterwarnings
 
 
-class db:
-    def __init__(self, database="test", history=True):
+class Kvdb:
+    def __init__(self, database="kvdb", history=True):
         self.database = database
         self.history = history
         self._db_opts = {
@@ -36,6 +37,7 @@ class db:
         add_history = "ALTER TABLE kvdb ADD SYSTEM VERSIONING;"
 
         self._query(drop)
+        filterwarnings('error', category=pymysql.Warning)
         self._query(create)
         if self.history is True:
             self._query(add_history)
@@ -48,27 +50,23 @@ class db:
         rows = cur.fetchall()
         cur.close()
         con.close()
-        if rows:
-            return rows
-        else:
-            return False
+        return rows
 
     def dict2json(self, v: dict):
-        """Convert a Python dictionary to JSON, used for writing key/values."""
+        """Convert a Python dictionary to JSON"""
         return json.dumps(v)
 
     def str2json(self, v: str):
-        """Convert String to JSON, used for reading key/values."""
+        """Convert String to JSON"""
         f_v = v.replace("'", '"')
         f_j = json.loads(f_v)
         return f_j
 
-    def datetime_to_str(self, dt):
+    def date2str(self, dt):
         return dt.strftime('%Y-%m-%d %H:%M:%S.%f')
 
     def get(self, k: str = None, when: str = None):
-        """Read a key back from the database.
-        Specify and datetime for when to get an older version of the key."""
+        """Read key back into JSON dict"""
         d = {
             "cols": "k, v",
             "db": self.database,
@@ -91,15 +89,16 @@ class db:
             return s.format(**d)
 
         def run():
-            rows = self._query(sql=sql())
+            rows = list()
+            rows.extend(self._query(sql=sql()))
             if rows:
                 for row in rows:
                     if 'v' in row:
                         row['v'] = self.str2json(row["v"])
                     if 'created' in row:
-                        row['created'] = self.datetime_to_str(row['created'])
+                        row['created'] = self.date2str(row['created'])
                     if 'updated' in row:
-                        row['updated'] = self.datetime_to_str(row['updated'])
+                        row['updated'] = self.date2str(row['updated'])
 
             if rows:
                 if len(rows) == 1:

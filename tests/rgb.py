@@ -1,9 +1,9 @@
 from time import sleep
 from pprint import pprint as pp
 
-import kvdb
+from kvdb import Kvdb
 
-db = kvdb.db(history=True)
+db = Kvdb()
 db.setup()
 
 db.set('red', {'rgb': [254, 0, 0]})

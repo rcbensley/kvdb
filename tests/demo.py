@@ -1,7 +1,7 @@
-import kvdb
+from kvdb import Kvdb
 from time import sleep
 
-db = kvdb.db()
+db = Kvdb()
 db.setup()
 
 db.set('a', {'iz_cool': False})

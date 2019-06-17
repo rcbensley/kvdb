@@ -1,7 +1,7 @@
-import kvdb
+from kvdb import Kvdb
 from pprint import pprint as pp
 
-db = kvdb.db()
+db = Kvdb()
 
 db.setup()
 

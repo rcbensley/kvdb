@@ -106,7 +106,7 @@ class Kvdb:
                 else:
                     return rows
             else:
-                return False
+                return rows
 
         def init():
             if when == "all":
@@ -150,8 +150,11 @@ class Kvdb:
         """Update a key and it's values in Python, by reading the JSON value
         back into Python, then writing it back to the database."""
         old_row = self.get(k)
+        merged_values = dict()
+        merged_values.update(old_row['v'])
+        merged_values.update(v)
         if old_row:
-            self.set(k, {**v, **old_row["v"]})
+            self.set(k, merged_values)
         else:
             return False
 

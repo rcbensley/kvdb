@@ -178,4 +178,5 @@ class Kvdb:
     def restore(self, k: str, when):
         """Restore a version of a deleted key."""
         last = self.get(k=k, when=when)
+        self.delete(k=k)
         self.set(k=last['k'], v=last['v'])

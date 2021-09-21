@@ -24,12 +24,12 @@ def gotta_watch_em_all(films):
         date = week_start + td(days=i)
         date_key = dt.strftime(date, "%Y-%m-%d")
         film = weekly_watch_list[i]
-        db.set(k=date_key, v=film)
+        db.put(k=date_key, v=film)
 
         question = f"Is {film['title']}, currently your favourite film? (y or n)"
         answer = input(question)
         if answer == "y":
-            db.set(k="favourite", v={**film, **{"date": date_key}})
+            db.put(k="favourite", v={**film, **{"date": date_key}})
 
 
 gotta_watch_em_all(weekly_watch_list)

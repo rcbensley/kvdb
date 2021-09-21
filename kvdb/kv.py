@@ -9,13 +9,11 @@ class db:
         collection: str,
         host: str = "localhost",
         database: str = "kvdb",
-        history: bool = True,
         drop: bool = False,
     ):
         self.table = collection
         self.host = host
         self.database = database
-        self.history = history
         self.drop = drop
         self.name = f"{self.database}.{self.table}"
         self._db_opts = {
@@ -49,18 +47,14 @@ class db:
             "PRIMARY KEY (id),"
             "UNIQUE KEY (k),"
             "INDEX idx_date (created, updated)"
-            ") ENGINE=InnoDB;"
+            ") ENGINE=InnoDB WITH SYSTEM VERSIONING;"
         )
-
-        add_history = f"ALTER TABLE {self.name} ADD SYSTEM VERSIONING;"
 
         self._cmd(create_db)
         if self.drop:
             self._cmd(drop_table)
         # filterwarnings("error", category=mariadb.Warning)
         self._cmd(create_table)
-        if self.history is True:
-            self._cmd(add_history)
 
     def __call__(self):
         self._setup()
@@ -162,7 +156,7 @@ class db:
         init()
         return run()
 
-    def set(self, k: str, v: dict):
+    def put(self, k: str, v: dict):
         """Insert or Update a key and it's values in the database."""
         row = {"k": k, "v": self.dict2json(v), "kv": ""}
         val_paths = list()
@@ -185,7 +179,7 @@ class db:
         merged_values.update(old_row["v"])
         merged_values.update(v)
         if old_row:
-            self.set(k, merged_values)
+            self.put(k, merged_values)
         else:
             return False
 
@@ -210,4 +204,4 @@ class db:
         """Restore a version of a deleted key."""
         last = self.get(k=k, when=when)
         self.delete(k=k)
-        self.set(k=last["k"], v=last["v"])
+        self.put(k=last["k"], v=last["v"])

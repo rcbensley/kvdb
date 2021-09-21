@@ -16,7 +16,7 @@ setup(
     ),
     packages=["kvdb"],
     install_requires=[
-        "pymysql",
+        "mariadb",
     ],
     keywords="kvdb",
 )

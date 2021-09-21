@@ -1,2 +1,2 @@
-from .kv import Kvdb
+from .kv import db
 

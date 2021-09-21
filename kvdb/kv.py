@@ -63,18 +63,18 @@ class db:
 
         """Query the database."""
         con = mariadb.connect(**self._db_opts)
-        cur = con.cursor(dictionary=True, buffered=False)
+        cur = con.cursor(dictionary=True, buffered=True)
         cur.execute(sql)
         rows = cur.fetchall()
-        cur.close()
         con.close()
         return rows
 
     def _cmd(self, sql: str):
         """Send and SQL command to the database."""
         con = mariadb.connect(**self._db_opts)
-        cur = con.cursor(dictionary=True, buffered=False)
+        cur = con.cursor(dictionary=True, buffered=True)
         cur.execute(sql)
+        con.close()
 
     def dict2json(self, v: dict):
         """Convert a Python dictionary to JSON"""

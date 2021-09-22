@@ -4,15 +4,19 @@ from setuptools import setup
 
 
 setup(
-    name='kvdb',
-    version='3.5',
-    url='https://github.com/rcbensley/kvdb',
-    description=("Key-Value-Database is a toy abstraction layer"
-                 " which uses MariaDB 10.3+ to utilise the JSON data type"
-                 " and System Versioning to answer that now aging question,"
-                 " why on earth are you using key-value stores"
-                 " and object databases?"),
-    packages=['kvdb'],
-    install_requires=['pymysql', ],
-    keywords='kvdb',
+    name="kvdb",
+    version="3.6",
+    url="https://github.com/rcbensley/kvdb",
+    description=(
+        "Key-Value-Database is a toy abstraction layer"
+        " which uses MariaDB 10.3+ to utilise the JSON data type"
+        " and System Versioning to answer that now aging question,"
+        " why on earth are you using key-value stores"
+        " and object databases?"
+    ),
+    packages=["kvdb"],
+    install_requires=[
+        "mariadb",
+    ],
+    keywords="kvdb",
 )

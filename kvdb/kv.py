@@ -1,25 +1,41 @@
 import json
-import pymysql
+import mariadb
 from warnings import filterwarnings
 
 
-class Kvdb:
-    def __init__(self, database="kvdb", history=True):
+class db:
+    def __init__(
+        self,
+        collection: str,
+        host: str = "localhost",
+        database: str = "kvdb",
+        drop: bool = False,
+    ):
+        self.table = collection
+        self.host = host
         self.database = database
-        self.history = history
+        self.drop = drop
+        self.name = f"{self.database}.{self.table}"
         self._db_opts = {
-            "host": "127.0.0.1",
-            "database": self.database,
+            "host": self.host,
             "autocommit": True,
-            "read_default_file": "~/.my.cnf",
-            "cursorclass": pymysql.cursors.DictCursor,
+            "default_file": "~/.my.cnf",
+            "default_group": "client",
         }
+        self._setup()
 
-    def setup(self):
-        """Create the table used by kvdb to store key/values."""
-        drop = "DROP TABLE IF EXISTS kvdb"
-        create = (
-            "CREATE TABLE kvdb ("
+    def __repr__(self) -> str:
+        return self.name
+
+    def __str__(self) -> str:
+        return self.name
+
+    def _setup(self):
+        """Create the table to store keys and values."""
+        drop_table = f"DROP TABLE IF EXISTS {self.name};"
+        create_db = f"CREATE DATABASE IF NOT EXISTS {self.database};"
+        create_table = (
+            f"CREATE TABLE IF NOT EXISTS {self.name} ("
             "id bigint(20) NOT NULL AUTO_INCREMENT,"
             "k varchar(128) NOT NULL,"
             "v JSON NOT NULL CHECK (JSON_VALID(v)),"
@@ -31,26 +47,34 @@ class Kvdb:
             "PRIMARY KEY (id),"
             "UNIQUE KEY (k),"
             "INDEX idx_date (created, updated)"
-            ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+            ") ENGINE=InnoDB WITH SYSTEM VERSIONING;"
         )
 
-        add_history = "ALTER TABLE kvdb ADD SYSTEM VERSIONING;"
+        self._cmd(create_db)
+        if self.drop:
+            self._cmd(drop_table)
+        # filterwarnings("error", category=mariadb.Warning)
+        self._cmd(create_table)
 
-        self._query(drop)
-        filterwarnings('error', category=pymysql.Warning)
-        self._query(create)
-        if self.history is True:
-            self._query(add_history)
+    def __call__(self):
+        self._setup()
 
-    def _query(self, sql: str):
+    def _query(self, sql: str) -> dict:
+
         """Query the database."""
-        con = pymysql.connect(**self._db_opts)
-        cur = con.cursor()
+        con = mariadb.connect(**self._db_opts)
+        cur = con.cursor(dictionary=True, buffered=True)
         cur.execute(sql)
         rows = cur.fetchall()
-        cur.close()
         con.close()
         return rows
+
+    def _cmd(self, sql: str):
+        """Send and SQL command to the database."""
+        con = mariadb.connect(**self._db_opts)
+        cur = con.cursor(dictionary=True, buffered=True)
+        cur.execute(sql)
+        con.close()
 
     def dict2json(self, v: dict):
         """Convert a Python dictionary to JSON"""
@@ -63,11 +87,12 @@ class Kvdb:
         return f_j
 
     def date2str(self, dt):
-        return dt.strftime('%Y-%m-%d %H:%M:%S.%f')
+        return dt.strftime("%Y-%m-%d %H:%M:%S.%f")
 
     def get(self, k: str = None, when: str = None):
         """Read key back into JSON dict"""
         d = {
+            "table": self.name,
             "cols": "k, v",
             "db": self.database,
             "when": "",
@@ -85,7 +110,7 @@ class Kvdb:
             d["group_by"] = "GROUP BY {}".format(i)
 
         def sql():
-            s = "SELECT {cols} FROM `{db}`.kvdb {when} {where} {group_by}"
+            s = "SELECT {cols} FROM {table} {when} {where} {group_by}"
             return s.format(**d)
 
         def run():
@@ -93,12 +118,12 @@ class Kvdb:
             rows.extend(self._query(sql=sql()))
             if rows:
                 for row in rows:
-                    if 'v' in row:
-                        row['v'] = self.str2json(row["v"])
-                    if 'created' in row:
-                        row['created'] = self.date2str(row['created'])
-                    if 'updated' in row:
-                        row['updated'] = self.date2str(row['updated'])
+                    if "v" in row:
+                        row["v"] = self.str2json(row["v"])
+                    if "created" in row:
+                        row["created"] = self.date2str(row["created"])
+                    if "updated" in row:
+                        row["updated"] = self.date2str(row["updated"])
 
             if rows:
                 if len(rows) == 1:
@@ -119,7 +144,7 @@ class Kvdb:
                 add_cols(", max(updated) as updated")
                 set_when("FOR SYSTEM_TIME all")
             elif when is not None:
-                set_when("FOR SYSTEM_TIME AS OF '{}'".format(when))
+                set_when(f"FOR SYSTEM_TIME AS OF '{when}'")
 
             if k is not None:
                 d["k"] = k
@@ -131,7 +156,7 @@ class Kvdb:
         init()
         return run()
 
-    def set(self, k: str, v: dict):
+    def put(self, k: str, v: dict):
         """Insert or Update a key and it's values in the database."""
         row = {"k": k, "v": self.dict2json(v), "kv": ""}
         val_paths = list()
@@ -141,27 +166,27 @@ class Kvdb:
         row["kv"] = ", ".join(val_paths)
 
         sql = (
-            "INSERT INTO kvdb (k, v) VALUES  ('{k}', '{v}') "
+            f"INSERT INTO {self.name}" + " (k, v) VALUES  ('{k}', '{v}') "
             "ON DUPLICATE KEY UPDATE v=JSON_SET(v, {kv})"
         ).format(**row)
-        self._query(sql)
+        self._cmd(sql)
 
     def update(self, k: str, v: dict):
         """Update a key and it's values in Python, by reading the JSON value
         back into Python, then writing it back to the database."""
         old_row = self.get(k)
         merged_values = dict()
-        merged_values.update(old_row['v'])
+        merged_values.update(old_row["v"])
         merged_values.update(v)
         if old_row:
-            self.set(k, merged_values)
+            self.put(k, merged_values)
         else:
             return False
 
     def delete(self, k: str):
         """Delete a key."""
-        sql = "DELETE FROM kvdb WHERE k='{}'".format(k)
-        self._query(sql)
+        sql = f"DELETE FROM {self.name} WHERE k='{k}'"
+        self._cmd(sql)
 
     def get_last(self, k: str = None):
         """Get the latest version of a key and it's values."""
@@ -179,4 +204,4 @@ class Kvdb:
         """Restore a version of a deleted key."""
         last = self.get(k=k, when=when)
         self.delete(k=k)
-        self.set(k=last['k'], v=last['v'])
+        self.put(k=last["k"], v=last["v"])
